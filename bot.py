@@ -7,15 +7,12 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from ytmusicapi import YTMusic
 
-
 # Create Flask web app for Render
 web_app = Flask(__name__)
-
 
 @web_app.route('/')
 def home():
     return "🎵 YouTube Music Playlist Tracker Bot is running!"
-
 
 @web_app.route('/health')
 def health():
@@ -25,19 +22,16 @@ def health():
         "timestamp": datetime.now().isoformat()
     }
 
-
 def run_web():
     """Run Flask web server"""
     port = int(os.environ.get('PORT', 10000))
     web_app.run(host='0.0.0.0', port=port)
 
-
-# Configuration - Use environment variables for deployment
+# Configuration
 BOT_TOKEN = os.environ.get("BOT_TOKEN")
 PLAYLIST_ID = os.environ.get("PLAYLIST_ID")
 CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "120"))
 STORAGE_FILE = "playlist_state.json"
-
 
 class PlaylistTracker:
     def __init__(self):
@@ -88,11 +82,9 @@ class PlaylistTracker:
                 'last_updated': datetime.now().isoformat()
             }, f, ensure_ascii=False, indent=2)
 
-
 # Initialize tracker
 tracker = PlaylistTracker()
 subscribed_chats = set()
-
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command"""
@@ -119,7 +111,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-
 async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle button presses"""
     query = update.callback_query
@@ -130,8 +121,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "🎵 <b>YouTube Music Playlist Tracker - Commands</b>\n\n"
             
             "<b>Setup Commands:</b>\n"
-            "/setplaylist &lt;url&gt; - Change the playlist to track\n"
-            "/reset - Reset playlist state\n\n"
+            "/setplaylist &lt;url&gt; - Change the playlist to track\n\n"
             
             "<b>Information Commands:</b>\n"
             "/status - Check current tracking status\n"
@@ -158,15 +148,13 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await query.edit_message_text(text=help_text, parse_mode='HTML')
 
-
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show detailed help message"""
     help_text = (
         "🎵 <b>YouTube Music Playlist Tracker - Commands</b>\n\n"
         
         "<b>Setup Commands:</b>\n"
-        "/setplaylist &lt;url&gt; - Change the playlist to track\n"
-        "/reset - Reset playlist state\n\n"
+        "/setplaylist &lt;url&gt; - Change the playlist to track\n\n"
         
         "<b>Information Commands:</b>\n"
         "/status - Check current tracking status\n"
@@ -194,23 +182,19 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     await update.message.reply_text(help_text, parse_mode='HTML')
 
-
 async def check_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Manually check playlist for changes"""
     await update.message.reply_text("🔍 Checking playlist...")
     
-    # Force fresh fetch from YouTube Music
     current_tracks = tracker.get_playlist_tracks(PLAYLIST_ID)
     
     if current_tracks is None:
         await update.message.reply_text("❌ Error fetching playlist. Check your configuration.")
         return
     
-    # Load previous state
     previous_tracks = tracker.load_previous_state()
     
     if not previous_tracks:
-        # First time - initialize
         tracker.save_current_state(current_tracks)
         await update.message.reply_text(
             f"✅ Initialized! Tracking {len(current_tracks)} songs.\n"
@@ -218,52 +202,18 @@ async def check_playlist(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
     
-    # Compare tracks
     added, removed = tracker.compare_playlists(previous_tracks, current_tracks)
     
-    # Build response message with counts
-    summary = (
-        f"📊 <b>Playlist Update</b> ({datetime.now().strftime('%I:%M %p')})\n\n"
-        f"Previous: {len(previous_tracks)} songs\n"
-        f"Current: {len(current_tracks)} songs\n\n"
-    )
-    
+    summary = f"📊 Playlist Update ({datetime.now().strftime('%I:%M %p')})\n\n"
     if added:
-        summary += f"➕ <b>Added ({len(added)}):</b>\n"
-        for track in added[:10]:  # Show max 10
-            summary += f"  • {track['title']} - {track['artists']}\n"
-        if len(added) > 10:
-            summary += f"  ... and {len(added) - 10} more\n"
-        summary += "\n"
-    
+        summary += f"➕ Added: {len(added)}\n"
     if removed:
-        summary += f"➖ <b>Removed ({len(removed)}):</b>\n"
-        for track in removed[:10]:  # Show max 10
-            summary += f"  • {track['title']} - {track['artists']}\n"
-        if len(removed) > 10:
-            summary += f"  ... and {len(removed) - 10} more\n"
-        summary += "\n"
-    
+        summary += f"➖ Removed: {len(removed)}\n"
     if not added and not removed:
-        summary += "✨ <b>No changes detected</b>"
+        summary += "✨ No changes detected"
     
-    await update.message.reply_text(summary, parse_mode='HTML')
-    
-    # Save current state for next comparison
+    await update.message.reply_text(summary)
     tracker.save_current_state(current_tracks)
-
-
-async def reset(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Reset playlist state and reinitialize"""
-    try:
-        if os.path.exists(STORAGE_FILE):
-            os.remove(STORAGE_FILE)
-            await update.message.reply_text("✅ Playlist state reset! Use /check to reinitialize.")
-        else:
-            await update.message.reply_text("ℹ️ No saved state found. Use /check to initialize.")
-    except Exception as e:
-        await update.message.reply_text(f"❌ Error: {str(e)}")
-
 
 async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Subscribe to automatic updates"""
@@ -271,13 +221,11 @@ async def subscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     subscribed_chats.add(chat_id)
     await update.message.reply_text("✅ Subscribed! You'll receive automatic updates.")
 
-
 async def unsubscribe(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Unsubscribe from updates"""
     chat_id = update.effective_chat.id
     subscribed_chats.discard(chat_id)
     await update.message.reply_text("❌ Unsubscribed from automatic updates.")
-
 
 async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Check subscription status and show playlist details"""
@@ -285,7 +233,6 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     is_subscribed = chat_id in subscribed_chats
     
     try:
-        # Fetch fresh playlist data
         playlist_data = tracker.ytmusic.get_playlist(PLAYLIST_ID, limit=None)
         
         playlist_title = playlist_data.get('title', 'Unknown Playlist')
@@ -297,13 +244,7 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
             elif isinstance(playlist_data['author'], str):
                 playlist_author = playlist_data['author']
         
-        # Get REAL-TIME track count from actual playlist
-        tracks = playlist_data.get('tracks', [])
-        total_songs = len(tracks)
-        
-        # If tracks is empty but trackCount exists, use that
-        if total_songs == 0 and 'trackCount' in playlist_data:
-            total_songs = playlist_data['trackCount']
+        total_songs = len(playlist_data.get('tracks', []))
         
         thumbnail_url = None
         if 'thumbnails' in playlist_data and playlist_data['thumbnails']:
@@ -339,11 +280,8 @@ async def status(update: Update, context: ContextTypes.DEFAULT_TYPE):
             
     except Exception as e:
         print(f"Error in status command: {e}")
-        import traceback
-        traceback.print_exc()
         status_text = "✅ Subscribed" if is_subscribed else "❌ Not subscribed"
         await update.message.reply_text(f"Status: {status_text}")
-
 
 async def setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Set or change the playlist to track"""
@@ -395,7 +333,6 @@ async def setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     except Exception as e:
         await update.message.reply_text(f"❌ Error: {str(e)}")
 
-
 async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
     """Periodically check playlist and notify subscribers"""
     current_tracks = tracker.get_playlist_tracks(PLAYLIST_ID)
@@ -427,7 +364,6 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
         
         tracker.save_current_state(current_tracks)
 
-
 def main():
     """Start the bot"""
     try:
@@ -449,7 +385,6 @@ def main():
         app.add_handler(CommandHandler("start", start))
         app.add_handler(CommandHandler("help", help_command))
         app.add_handler(CommandHandler("setplaylist", setplaylist))
-        app.add_handler(CommandHandler("reset", reset))
         app.add_handler(CommandHandler("check", check_playlist))
         app.add_handler(CommandHandler("subscribe", subscribe))
         app.add_handler(CommandHandler("unsubscribe", unsubscribe))
@@ -467,7 +402,6 @@ def main():
         print(f"❌ ERROR: {e}")
         import traceback
         traceback.print_exc()
-
 
 if __name__ == "__main__":
     print("="*50)
