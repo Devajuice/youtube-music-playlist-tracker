@@ -1,0 +1,8 @@
+browser.json
+playlist_state.json
+oauth.json
+headers_auth.json
+__pycache__/
+*.pyc
+.env
+*.log
