@@ -28,8 +28,8 @@ def run_web():
     web_app.run(host='0.0.0.0', port=port)
 
 # Configuration
-BOT_TOKEN = os.environ.get("BOT_TOKEN", "8243692539:AAEJA6TPk3abwyzfVPjrvUEnftQTH-qF9sg")
-PLAYLIST_ID = os.environ.get("PLAYLIST_ID", "PLXd3ds-SIEMJfFfhlv2hpMwbzFwB3ambu")
+BOT_TOKEN = os.environ.get("BOT_TOKEN")
+PLAYLIST_ID = os.environ.get("PLAYLIST_ID")
 CHECK_INTERVAL = int(os.environ.get("CHECK_INTERVAL", "120"))
 STORAGE_FILE = "playlist_state.json"
 
