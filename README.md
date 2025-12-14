@@ -3,6 +3,7 @@
 A Telegram bot that tracks changes in YouTube Music playlists and sends beautiful notifications with album art.
 
 ## Features
+
 - 🎵 Track YouTube Music playlists
 - ➕ Get notified when songs are added
 - ➖ Get notified when songs are removed
@@ -11,6 +12,7 @@ A Telegram bot that tracks changes in YouTube Music playlists and sends beautifu
 - 🔄 Automatic checks every 2 minutes
 
 ## Commands
+
 - `/start` - Start the bot
 - `/help` - Show all commands
 - `/setplaylist <url>` - Change tracked playlist
@@ -20,4 +22,5 @@ A Telegram bot that tracks changes in YouTube Music playlists and sends beautifu
 - `/unsubscribe` - Disable notifications
 
 ## Deployment
+
 Hosted on Render with 24/7 uptime.
