@@ -1,9 +1,31 @@
 import json
 import os
 from datetime import datetime
+from flask import Flask
+import threading
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 from ytmusicapi import YTMusic
+
+# Create Flask web app for Render
+web_app = Flask(__name__)
+
+@web_app.route('/')
+def home():
+    return "🎵 YouTube Music Playlist Tracker Bot is running!"
+
+@web_app.route('/health')
+def health():
+    return {
+        "status": "healthy",
+        "bot": "youtube-music-tracker",
+        "timestamp": datetime.now().isoformat()
+    }
+
+def run_web():
+    """Run Flask web server"""
+    port = int(os.environ.get('PORT', 10000))
+    web_app.run(host='0.0.0.0', port=port)
 
 # Configuration
 BOT_TOKEN = os.environ.get("BOT_TOKEN", "8243692539:AAEJA6TPk3abwyzfVPjrvUEnftQTH-qF9sg")
@@ -570,6 +592,10 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
 def main():
     """Start the bot"""
     try:
+        # Start Flask web server in background thread
+        print("Starting web server...")
+        threading.Thread(target=run_web, daemon=True).start()
+        
         print("Initializing bot application...")
         app = Application.builder().token(BOT_TOKEN).build()
         
@@ -601,9 +627,3 @@ def main():
         print(f"❌ Error starting bot: {e}")
         import traceback
         traceback.print_exc()
-
-if __name__ == "__main__":
-    print("=" * 50)
-    print("YouTube Music Playlist Tracker Bot")
-    print("=" * 50)
-    main()
