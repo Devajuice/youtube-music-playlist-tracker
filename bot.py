@@ -588,16 +588,30 @@ async def periodic_check(context: ContextTypes.DEFAULT_TYPE):
         
         tracker.save_current_state(current_tracks)
 
-
 def main():
     """Start the bot"""
     try:
         # Start Flask web server in background thread
         print("Starting web server...")
         threading.Thread(target=run_web, daemon=True).start()
+        print("✅ Web server started")
+        
+        # Check if BOT_TOKEN exists
+        if not BOT_TOKEN:
+            print("❌ ERROR: BOT_TOKEN environment variable not set!")
+            return
+        
+        print(f"Bot token found: {BOT_TOKEN[:10]}...")
+        
+        # Check if browser.json exists
+        if not os.path.exists("browser.json"):
+            print("❌ ERROR: browser.json file not found!")
+            return
+        print("✅ browser.json found")
         
         print("Initializing bot application...")
         app = Application.builder().token(BOT_TOKEN).build()
+        print("✅ Bot application initialized")
         
         print("Adding command handlers...")
         # Add command handlers
@@ -611,6 +625,7 @@ def main():
         
         # Add callback query handler for buttons
         app.add_handler(CallbackQueryHandler(button_callback))
+        print("✅ Command handlers added")
         
         # Schedule periodic checks
         if app.job_queue:
@@ -621,9 +636,24 @@ def main():
             print("⚠️ Job queue not available. Install python-telegram-bot[job-queue]")
         
         print("Starting polling...")
-        app.run_polling()
+        print("=" * 50)
+        app.run_polling(allowed_updates=Update.ALL_TYPES)
         
     except Exception as e:
-        print(f"❌ Error starting bot: {e}")
+        print(f"❌ FATAL ERROR starting bot: {e}")
         import traceback
         traceback.print_exc()
+        # Keep process alive for debugging
+        import time
+        print("Keeping process alive for 60 seconds for log inspection...")
+        time.sleep(60)
+
+
+if __name__ == "__main__":
+    print("=" * 50)
+    print("YouTube Music Playlist Tracker Bot")
+    print("=" * 50)
+    print(f"Python version: {os.sys.version}")
+    print(f"Current directory: {os.getcwd()}")
+    print(f"Files in directory: {os.listdir('.')}")
+    main()
