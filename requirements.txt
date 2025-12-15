@@ -1,5 +1,5 @@
-ytmusicapi==1.7.5
-python-telegram-bot[job-queue]==21.7
+ytmusicapi>=1.7.0
+python-telegram-bot==21.7
 python-dotenv==1.0.1
 flask==3.0.3
 requests==2.32.3

@@ -15,8 +15,10 @@ from urllib.parse import urlparse, parse_qs
 
 
 
+
 # Load environment variables
 load_dotenv()
+
 
 
 
@@ -28,8 +30,10 @@ CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', 300))  # Default: 5 minutes
 
 
 
+
 # Conversation states
 WAITING_FOR_PLAYLIST = 1
+
 
 
 
@@ -49,10 +53,12 @@ except Exception as e:
 
 
 
+
 # Store files
 PLAYLIST_FILE = 'playlist_state.json'
 SUBSCRIBERS_FILE = 'subscribers.json'
 USER_PLAYLISTS_FILE = 'user_playlists.json'
+
 
 
 
@@ -73,6 +79,7 @@ def load_subscribers():
 
 
 
+
 def save_subscribers(subscribers):
     """Save list of subscribed chat IDs"""
     try:
@@ -80,6 +87,7 @@ def save_subscribers(subscribers):
             json.dump(subscribers, f, indent=2)
     except Exception as e:
         print(f"Error saving subscribers: {e}")
+
 
 
 
@@ -100,6 +108,7 @@ def load_user_playlists():
 
 
 
+
 def save_user_playlists(playlists):
     """Save user-specific playlist IDs"""
     try:
@@ -112,10 +121,12 @@ def save_user_playlists(playlists):
 
 
 
+
 def get_user_playlist_id(chat_id):
     """Get playlist ID for specific user, fallback to default"""
     user_playlists = load_user_playlists()
     return user_playlists.get(str(chat_id), YOUTUBE_PLAYLIST_ID)
+
 
 
 
@@ -139,6 +150,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             print(f"Failed to send error message: {e}")
+
 
 
 
@@ -178,6 +190,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /stop command - Unsubscribe user from notifications"""
     chat_id = update.effective_chat.id
@@ -197,6 +210,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "ℹ️ You're not currently subscribed.",
             parse_mode='HTML'
         )
+
 
 
 
@@ -236,6 +250,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /check command - Manually trigger playlist check"""
     chat_id = update.effective_chat.id
@@ -252,6 +267,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Perform check for this user only
     await check_playlist_for_user(chat_id, context.bot)
+
 
 
 
@@ -292,6 +308,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /reset command - Reset user's playlist state"""
     chat_id = update.effective_chat.id
@@ -327,6 +344,7 @@ async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def setplaylist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /setplaylist command - Start playlist setup conversation"""
     await update.message.reply_text(
@@ -345,6 +363,7 @@ async def setplaylist_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         parse_mode='HTML'
     )
     return WAITING_FOR_PLAYLIST
+
 
 
 
@@ -421,11 +440,11 @@ async def receive_playlist_id(update: Update, context: ContextTypes.DEFAULT_TYPE
             f"📋 Playlist ID: <code>{playlist_id}</code>\n\n"
         )
         
-        # Add warning if exactly 100 tracks (might be hitting limit)
-        if len(test_tracks) == 100:
+        # Add warning if track count is multiple of 100 (might be hitting limit)
+        if len(test_tracks) % 100 == 0 and len(test_tracks) >= 100:
             success_msg += (
-                "⚠️ <b>Note:</b> Your playlist returned exactly 100 songs. "
-                "If you have more songs, the bot might only track the first 100 due to API limitations.\n\n"
+                f"⚠️ <b>Note:</b> Fetched exactly {len(test_tracks)} songs. "
+                "If you have more songs, some might not be tracked due to API pagination.\n\n"
             )
         
         success_msg += (
@@ -458,6 +477,7 @@ async def receive_playlist_id(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
+
 async def cancel_setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancel the playlist setup"""
     await update.message.reply_text(
@@ -471,6 +491,7 @@ async def cancel_setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
 
 
+
 def get_playlist_tracks(playlist_id=None):
     """Fetch current tracks from YouTube Music playlist"""
     try:
@@ -479,8 +500,9 @@ def get_playlist_tracks(playlist_id=None):
         
         print(f"🔍 Fetching playlist: {playlist_id}")
         
-        # Fetch the playlist with all tracks
-        playlist = ytmusic.get_playlist(playlist_id, limit=None)
+        # Fetch the playlist with a high limit to get all tracks
+        # Setting limit to 5000 should handle most playlists
+        playlist = ytmusic.get_playlist(playlist_id, limit=5000)
         
         # Check if playlist is valid
         if not playlist:
@@ -527,10 +549,9 @@ def get_playlist_tracks(playlist_id=None):
         
         print(f"✅ Successfully fetched {len(tracks)} tracks")
         
-        # Warning if we got exactly 100 tracks (might be a limit issue)
-        if len(tracks) == 100:
-            print("⚠️ WARNING: Got exactly 100 tracks - might be hitting API limit!")
-            print("⚠️ If your playlist has more than 100 songs, only the first 100 will be tracked.")
+        # Check if we might be missing tracks
+        if len(tracks) % 100 == 0 and len(tracks) >= 100:
+            print(f"⚠️ Got exactly {len(tracks)} tracks - this might indicate pagination limit")
         
         return tracks
         
@@ -538,6 +559,7 @@ def get_playlist_tracks(playlist_id=None):
         print(f"❌ Error fetching playlist {playlist_id}: {type(e).__name__}: {e}")
         traceback.print_exc()
         return None
+
 
 
 
@@ -559,6 +581,7 @@ def load_previous_state():
 
 
 
+
 def save_current_state(tracks):
     """Save current playlist state to file"""
     try:
@@ -567,6 +590,7 @@ def save_current_state(tracks):
             json.dump(tracks, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Error saving state: {e}")
+
 
 
 
@@ -606,6 +630,7 @@ def compare_playlists(old_tracks, new_tracks):
 
 
 
+
 def format_song_caption(song, action):
     """Format song caption for photo message"""
     if action == "added":
@@ -634,6 +659,7 @@ def format_song_caption(song, action):
 
 
 
+
 def download_image(url):
     """Download image from URL and return as BytesIO"""
     try:
@@ -644,6 +670,7 @@ def download_image(url):
     except Exception as e:
         print(f"Error downloading image: {e}")
         return None
+
 
 
 
@@ -681,6 +708,7 @@ async def send_song_card_to_subscribers(bot, song, action):
                 )
         except Exception as e:
             print(f"Failed to send to {chat_id}: {e}")
+
 
 
 
@@ -800,6 +828,7 @@ async def check_playlist_for_user(chat_id, bot):
 
 
 
+
 async def check_playlist(bot):
     """Main function to check playlist and send notifications to all subscribers"""
     print("Checking playlist for changes...")
@@ -842,6 +871,7 @@ async def check_playlist(bot):
 
 
 
+
 async def periodic_check(application: Application):
     """Periodic task to check playlist"""
     while True:
@@ -856,10 +886,12 @@ async def periodic_check(application: Application):
 
 
 
+
 async def startup_task(application: Application):
     """Run periodic check in background"""
     await asyncio.sleep(1)  # Wait 1 second for bot to fully start
     asyncio.create_task(periodic_check(application))
+
 
 
 
@@ -887,7 +919,7 @@ def main():
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("check", check_command))
     application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("reset", reset_command))  # NEW: Reset command
+    application.add_handler(CommandHandler("reset", reset_command))
     application.add_handler(setplaylist_handler)
     
     # Add error handler
@@ -903,6 +935,7 @@ def main():
     
     # Start the bot
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 
 
