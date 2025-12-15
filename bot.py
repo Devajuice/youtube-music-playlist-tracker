@@ -14,8 +14,10 @@ from urllib.parse import urlparse, parse_qs
 
 
 
+
 # Load environment variables
 load_dotenv()
+
 
 
 
@@ -25,8 +27,10 @@ CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', 300))  # Default: 5 minutes
 
 
 
+
 # Conversation states
 WAITING_FOR_PLAYLIST = 1
+
 
 
 
@@ -44,10 +48,12 @@ except Exception as e:
 
 
 
+
 # Store files
 PLAYLIST_FILE = 'playlist_state.json'
 SUBSCRIBERS_FILE = 'subscribers.json'
 USER_PLAYLISTS_FILE = 'user_playlists.json'
+
 
 
 
@@ -66,6 +72,7 @@ def load_subscribers():
 
 
 
+
 def save_subscribers(subscribers):
     """Save list of subscribed chat IDs"""
     try:
@@ -73,6 +80,7 @@ def save_subscribers(subscribers):
             json.dump(subscribers, f, indent=2)
     except Exception as e:
         print(f"Error saving subscribers: {e}")
+
 
 
 
@@ -91,6 +99,7 @@ def load_user_playlists():
 
 
 
+
 def save_user_playlists(playlists):
     """Save user-specific playlist IDs"""
     try:
@@ -102,10 +111,12 @@ def save_user_playlists(playlists):
 
 
 
+
 def get_user_playlist_id(chat_id):
     """Get playlist ID for specific user, fallback to default"""
     user_playlists = load_user_playlists()
     return user_playlists.get(str(chat_id), YOUTUBE_PLAYLIST_ID)
+
 
 
 
@@ -132,6 +143,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /start command - Subscribe user to notifications"""
     chat_id = update.effective_chat.id
@@ -150,6 +162,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "/status - Check current status\n"
             "/check - Force check playlist now\n"
             "/setplaylist - Set your custom playlist\n"
+            "/reset - Reset your playlist state\n"
             "/help - Show detailed help\n\n"
             "Use /help for more information! 📚",
             parse_mode='HTML'
@@ -160,6 +173,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "ℹ️ You're already subscribed to playlist updates!",
             parse_mode='HTML'
         )
+
 
 
 
@@ -183,6 +197,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "ℹ️ You're not currently subscribed.",
             parse_mode='HTML'
         )
+
 
 
 
@@ -220,6 +235,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /check command - Manually trigger playlist check"""
     chat_id = update.effective_chat.id
@@ -240,6 +256,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 
+
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /help command - Show help information"""
     help_text = (
@@ -252,6 +269,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "/status - View bot status and your subscription info\n"
         "/check - Manually check for playlist updates now\n"
         "/setplaylist - Set your custom YouTube Music playlist\n"
+        "/reset - Reset your playlist state (fixes sync issues)\n"
         "/help - Show this help message\n\n"
         "<b>⚙️ How It Works:</b>\n\n"
         "• The bot checks your playlist every 5 minutes\n"
@@ -263,11 +281,48 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "• Use /check to test the bot immediately\n"
         "• Use /status to see how many songs are being tracked\n"
         "• Use /setplaylist to monitor your own playlist\n"
+        "• Use /reset if you see incorrect notifications\n"
         "• The bot runs 24/7 so you never miss updates!\n\n"
         "Enjoy your music tracking! 🎶"
     )
     
     await update.message.reply_text(help_text, parse_mode='HTML')
+
+
+
+
+
+async def reset_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle /reset command - Reset user's playlist state"""
+    chat_id = update.effective_chat.id
+    user_state_file = f'playlist_state_{chat_id}.json'
+    
+    # Delete the user's state file if it exists
+    try:
+        if os.path.exists(user_state_file):
+            os.remove(user_state_file)
+            await update.message.reply_text(
+                "✅ <b>Playlist state reset successfully!</b>\n\n"
+                "Your saved playlist state has been cleared.\n\n"
+                "Next time you use /check, the bot will save a fresh state "
+                "and only detect changes from that point forward.\n\n"
+                "Try /check now to establish a new baseline!",
+                parse_mode='HTML'
+            )
+            print(f"Reset state for user: {chat_id}")
+        else:
+            await update.message.reply_text(
+                "ℹ️ No saved state found. Nothing to reset.\n\n"
+                "Use /check to create a new state.",
+                parse_mode='HTML'
+            )
+    except Exception as e:
+        print(f"Error resetting state for {chat_id}: {e}")
+        await update.message.reply_text(
+            "❌ Failed to reset state. Please try again.",
+            parse_mode='HTML'
+        )
+
 
 
 
@@ -290,6 +345,7 @@ async def setplaylist_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         parse_mode='HTML'
     )
     return WAITING_FOR_PLAYLIST
+
 
 
 
@@ -401,6 +457,7 @@ async def receive_playlist_id(update: Update, context: ContextTypes.DEFAULT_TYPE
 
 
 
+
 async def cancel_setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Cancel the playlist setup"""
     await update.message.reply_text(
@@ -409,6 +466,7 @@ async def cancel_setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE)
         parse_mode='HTML'
     )
     return ConversationHandler.END
+
 
 
 
@@ -484,6 +542,7 @@ def get_playlist_tracks(playlist_id=None):
 
 
 
+
 def load_previous_state():
     """Load previous playlist state from file"""
     try:
@@ -499,6 +558,7 @@ def load_previous_state():
 
 
 
+
 def save_current_state(tracks):
     """Save current playlist state to file"""
     try:
@@ -507,6 +567,7 @@ def save_current_state(tracks):
             json.dump(tracks, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Error saving state: {e}")
+
 
 
 
@@ -544,6 +605,7 @@ def compare_playlists(old_tracks, new_tracks):
 
 
 
+
 def format_song_caption(song, action):
     """Format song caption for photo message"""
     if action == "added":
@@ -571,6 +633,7 @@ def format_song_caption(song, action):
 
 
 
+
 def download_image(url):
     """Download image from URL and return as BytesIO"""
     try:
@@ -581,6 +644,7 @@ def download_image(url):
     except Exception as e:
         print(f"Error downloading image: {e}")
         return None
+
 
 
 
@@ -617,6 +681,7 @@ async def send_song_card_to_subscribers(bot, song, action):
                 )
         except Exception as e:
             print(f"Failed to send to {chat_id}: {e}")
+
 
 
 
@@ -734,6 +799,7 @@ async def check_playlist_for_user(chat_id, bot):
 
 
 
+
 async def check_playlist(bot):
     """Main function to check playlist and send notifications to all subscribers"""
     print("Checking playlist for changes...")
@@ -775,6 +841,7 @@ async def check_playlist(bot):
 
 
 
+
 async def periodic_check(application: Application):
     """Periodic task to check playlist"""
     while True:
@@ -788,10 +855,12 @@ async def periodic_check(application: Application):
 
 
 
+
 async def startup_task(application: Application):
     """Run periodic check in background"""
     await asyncio.sleep(1)  # Wait 1 second for bot to fully start
     asyncio.create_task(periodic_check(application))
+
 
 
 
@@ -818,6 +887,7 @@ def main():
     application.add_handler(CommandHandler("status", status_command))
     application.add_handler(CommandHandler("check", check_command))
     application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CommandHandler("reset", reset_command))  # NEW: Reset command
     application.add_handler(setplaylist_handler)
     
     # Add error handler
@@ -833,6 +903,7 @@ def main():
     
     # Start the bot
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 
 
