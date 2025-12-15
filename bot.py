@@ -1,6 +1,7 @@
 import os
 import time
 import asyncio
+import traceback
 from dotenv import load_dotenv
 from ytmusicapi import YTMusic
 from telegram import Update, Bot, InputMediaPhoto
@@ -11,23 +12,38 @@ import requests
 from io import BytesIO
 from urllib.parse import urlparse, parse_qs
 
+
 # Load environment variables
 load_dotenv()
+
 
 TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 YOUTUBE_PLAYLIST_ID = os.getenv('YOUTUBE_PLAYLIST_ID')
 CHECK_INTERVAL = int(os.getenv('CHECK_INTERVAL', 300))  # Default: 5 minutes
 
+
 # Conversation states
 WAITING_FOR_PLAYLIST = 1
 
-# Initialize APIs
-ytmusic = YTMusic()
+
+# Initialize APIs with optional authentication
+try:
+    if os.path.exists('headers_auth.json'):
+        ytmusic = YTMusic('headers_auth.json')
+        print("✅ Using authenticated YTMusic")
+    else:
+        ytmusic = YTMusic()
+        print("✅ Using unauthenticated YTMusic")
+except Exception as e:
+    print(f"⚠️ Error initializing YTMusic: {e}")
+    ytmusic = YTMusic()
+
 
 # Store files
 PLAYLIST_FILE = 'playlist_state.json'
 SUBSCRIBERS_FILE = 'subscribers.json'
 USER_PLAYLISTS_FILE = 'user_playlists.json'
+
 
 
 def load_subscribers():
@@ -42,6 +58,7 @@ def load_subscribers():
         return []
 
 
+
 def save_subscribers(subscribers):
     """Save list of subscribed chat IDs"""
     try:
@@ -49,6 +66,7 @@ def save_subscribers(subscribers):
             json.dump(subscribers, f, indent=2)
     except Exception as e:
         print(f"Error saving subscribers: {e}")
+
 
 
 def load_user_playlists():
@@ -63,6 +81,7 @@ def load_user_playlists():
         return {}
 
 
+
 def save_user_playlists(playlists):
     """Save user-specific playlist IDs"""
     try:
@@ -72,10 +91,12 @@ def save_user_playlists(playlists):
         print(f"Error saving user playlists: {e}")
 
 
+
 def get_user_playlist_id(chat_id):
     """Get playlist ID for specific user, fallback to default"""
     user_playlists = load_user_playlists()
     return user_playlists.get(str(chat_id), YOUTUBE_PLAYLIST_ID)
+
 
 
 async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -96,6 +117,7 @@ async def error_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
             )
         except Exception as e:
             print(f"Failed to send error message: {e}")
+
 
 
 async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -128,6 +150,7 @@ async def start_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 
+
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /stop command - Unsubscribe user from notifications"""
     chat_id = update.effective_chat.id
@@ -147,6 +170,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             "ℹ️ You're not currently subscribed.",
             parse_mode='HTML'
         )
+
 
 
 async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -180,6 +204,7 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(status_message, parse_mode='HTML')
 
 
+
 async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /check command - Manually trigger playlist check"""
     chat_id = update.effective_chat.id
@@ -196,6 +221,7 @@ async def check_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     # Perform check for this user only
     await check_playlist_for_user(chat_id, context.bot)
+
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -228,6 +254,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(help_text, parse_mode='HTML')
 
 
+
 async def setplaylist_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Handle /setplaylist command - Start playlist setup conversation"""
     await update.message.reply_text(
@@ -246,6 +273,7 @@ async def setplaylist_command(update: Update, context: ContextTypes.DEFAULT_TYPE
         parse_mode='HTML'
     )
     return WAITING_FOR_PLAYLIST
+
 
 
 async def receive_playlist_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -324,14 +352,22 @@ async def receive_playlist_id(update: Update, context: ContextTypes.DEFAULT_TYPE
         return ConversationHandler.END
         
     except Exception as e:
-        print(f"Error validating playlist: {e}")
+        error_msg = str(e)
+        print(f"Error validating playlist: {type(e).__name__}: {error_msg}")
+        traceback.print_exc()
+        
         await update.message.reply_text(
             "❌ <b>Error validating playlist</b>\n\n"
-            f"Error details: {str(e)}\n\n"
-            "Please try again or send /cancel to abort.",
+            f"Error: {error_msg}\n\n"
+            "Please check:\n"
+            "• The playlist is public (not private)\n"
+            "• The playlist ID is correct\n"
+            "• The playlist has at least one song\n\n"
+            "Try again or send /cancel to abort.",
             parse_mode='HTML'
         )
         return WAITING_FOR_PLAYLIST
+
 
 
 async def cancel_setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -344,16 +380,39 @@ async def cancel_setplaylist(update: Update, context: ContextTypes.DEFAULT_TYPE)
     return ConversationHandler.END
 
 
+
 def get_playlist_tracks(playlist_id=None):
     """Fetch current tracks from YouTube Music playlist"""
     try:
         if playlist_id is None:
             playlist_id = YOUTUBE_PLAYLIST_ID
         
-        print(f"Fetching playlist: {playlist_id}")
+        print(f"🔍 Fetching playlist: {playlist_id}")
+        
+        # Fetch the playlist
         playlist = ytmusic.get_playlist(playlist_id, limit=None)
+        
+        # Check if playlist is valid
+        if not playlist:
+            print("❌ Playlist returned None or empty")
+            return None
+        
+        # Check if tracks exist
+        if 'tracks' not in playlist:
+            print(f"❌ No 'tracks' key in playlist. Keys: {playlist.keys()}")
+            return None
+        
+        # Check if tracks is empty or None
+        if not playlist['tracks']:
+            print("⚠️ Playlist has no tracks")
+            return []
+        
         tracks = []
         for track in playlist['tracks']:
+            # Skip None tracks
+            if not track:
+                continue
+            
             # Get the best quality SQUARE thumbnail (not wide)
             thumbnail = None
             if track.get('thumbnails'):
@@ -368,15 +427,19 @@ def get_playlist_tracks(playlist_id=None):
             
             tracks.append({
                 'videoId': track.get('videoId'),
-                'title': track.get('title'),
-                'artists': ', '.join([artist['name'] for artist in track.get('artists', [])]),
+                'title': track.get('title', 'Unknown'),
+                'artists': ', '.join([artist['name'] for artist in track.get('artists', [])]) if track.get('artists') else 'Unknown Artist',
                 'thumbnail': thumbnail
             })
-        print(f"Successfully fetched {len(tracks)} tracks")
+        
+        print(f"✅ Successfully fetched {len(tracks)} tracks")
         return tracks
+        
     except Exception as e:
-        print(f"Error fetching playlist {playlist_id}: {e}")
+        print(f"❌ Error fetching playlist {playlist_id}: {type(e).__name__}: {e}")
+        traceback.print_exc()
         return None
+
 
 
 def load_previous_state():
@@ -392,6 +455,7 @@ def load_previous_state():
         return []
 
 
+
 def save_current_state(tracks):
     """Save current playlist state to file"""
     try:
@@ -400,6 +464,7 @@ def save_current_state(tracks):
             json.dump(tracks, f, ensure_ascii=False, indent=2)
     except Exception as e:
         print(f"Error saving state: {e}")
+
 
 
 def compare_playlists(old_tracks, new_tracks):
@@ -433,6 +498,7 @@ def compare_playlists(old_tracks, new_tracks):
     return added_songs, removed_songs
 
 
+
 def format_song_caption(song, action):
     """Format song caption for photo message"""
     if action == "added":
@@ -458,6 +524,7 @@ def format_song_caption(song, action):
     return caption
 
 
+
 def download_image(url):
     """Download image from URL and return as BytesIO"""
     try:
@@ -468,6 +535,7 @@ def download_image(url):
     except Exception as e:
         print(f"Error downloading image: {e}")
         return None
+
 
 
 async def send_song_card_to_subscribers(bot, song, action):
@@ -502,6 +570,7 @@ async def send_song_card_to_subscribers(bot, song, action):
                 )
         except Exception as e:
             print(f"Failed to send to {chat_id}: {e}")
+
 
 
 async def check_playlist_for_user(chat_id, bot):
@@ -615,6 +684,7 @@ async def check_playlist_for_user(chat_id, bot):
         )
 
 
+
 async def check_playlist(bot):
     """Main function to check playlist and send notifications to all subscribers"""
     print("Checking playlist for changes...")
@@ -654,6 +724,7 @@ async def check_playlist(bot):
         print("No changes detected")
 
 
+
 async def periodic_check(application: Application):
     """Periodic task to check playlist"""
     while True:
@@ -665,10 +736,12 @@ async def periodic_check(application: Application):
         await asyncio.sleep(CHECK_INTERVAL)
 
 
+
 async def startup_task(application: Application):
     """Run periodic check in background"""
     await asyncio.sleep(1)  # Wait 1 second for bot to fully start
     asyncio.create_task(periodic_check(application))
+
 
 
 def main():
@@ -708,6 +781,7 @@ def main():
     
     # Start the bot
     application.run_polling(allowed_updates=Update.ALL_TYPES)
+
 
 
 if __name__ == '__main__':
