@@ -27,8 +27,9 @@ wheels/
 *.egg
 
 # Bot data files
-playlist_state.json
+playlist_state*.json
 subscribers.json
+user_playlists.json
 
 # IDE
 .vscode/

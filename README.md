@@ -91,21 +91,25 @@ source venv/bin/activate # On Windows: venv\Scripts\activate
 ```
 
 3. **Install dependencies**
+
 ```bash
 pip install -r requirements.txt
 ```
 
 4. **Configure environment variables**
+
 ```bash
 cp .env.example .env
 ```
 
 5. **Run the bot**
+
 ```bash
 python bot.py
 ```
 
 ## 📁 Project Structure
+
 ```
 youtube-music-telegram-bot/
 ├── bot.py # Main bot logic
@@ -148,14 +152,17 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## ⚠️ Troubleshooting
 
 ### Bot not detecting changes
+
 - Delete `playlist_state.json` and run `/check` to reinitialize
 - Verify your playlist ID is correct
 
 ### Authentication errors
+
 - Make sure your playlist is public or properly authenticated
 - Check your bot token is correct
 
 ### Bot goes offline on Render free tier
+
 - Ensure UptimeRobot is configured correctly
 - Render free tier sleeps after 15 minutes of inactivity
 
@@ -169,6 +176,7 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 ## 📧 Support
 
 If you encounter any issues or have questions:
+
 - Open an issue on GitHub
 - Check existing issues for solutions
 
